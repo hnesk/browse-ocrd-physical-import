@@ -22,12 +22,11 @@ pyclean:
 build: clean-build
 	$(PYTHON) setup.py sdist bdist_wheel
 
-#testpypi: clean-build build
-#	twine upload --repository testpypi ./dist/browse[_-]ocrd*.{tar.gz,whl}
+testpypi: clean-build build
+	twine upload --repository testpypi ./dist/browse[_-]ocrd[_-]physical[_-]import*.{tar.gz,whl}
 
-#pypi: clean-build build
-#	twine upload ./dist/browse[_-]ocrd*.{tar.gz,whl}
-
+pypi: clean-build build
+	twine upload ./dist/browse[_-]ocrd[_-]physical[_-]import*.{tar.gz,whl}
 
 test:
 	$(PYTHON) -m unittest discover -s tests
