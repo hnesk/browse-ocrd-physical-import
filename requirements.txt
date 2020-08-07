@@ -1,5 +1,11 @@
-browse-ocrd
-pyvoussoir >= 0.3.0
 wheel
+browse-ocrd
+pkg_resources
+PyGObject
+ocrd
+Pillow
+numpy
+opencv-python-headless
+pyvoussoir >= 0.3.0
 pure-python-adb
 retrying
