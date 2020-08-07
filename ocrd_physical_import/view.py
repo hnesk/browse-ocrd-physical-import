@@ -6,7 +6,7 @@ from typing import List, Any, Optional
 from voussoir.pagewarper import PageWarper, LayoutInfo
 from numpy import array as ndarray
 
-from ocrd_browser.extensions.physical_import.scandriver import DummyDriver, AndroidADBDriver, AbstractScanDriver
+from .scandriver import DummyDriver, AndroidADBDriver, AbstractScanDriver
 from ocrd_browser.ui import MainWindow
 from ocrd_browser.util.image import cv_scale, cv_to_pixbuf
 from ocrd_browser.view import View
@@ -43,10 +43,11 @@ class ViewScan(View):
         self.update_ui()
 
     def on_scan(self, _action: Gio.SimpleAction, _param: Optional[str]) -> None:
+        pw = PageWarper()
         try:
             file = str(self.driver.scan())
             image = cv2.imread(file)
-            pw = PageWarper(image)
+            pw.set_image(image)
         except Exception as err:
             print(err)
             raise err

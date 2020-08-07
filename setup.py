@@ -1,33 +1,22 @@
 # -*- coding: utf-8 -*-
 import codecs
-import subprocess
 
 import setuptools
 from setuptools import setup
-from ocrd_browser import __version__
+from ocrd_physical_import import __version__
 
 install_requires = open('requirements.txt').read().split('\n')
 
-print("Generating gresource bundle")
-subprocess.call(
-    [
-        "glib-compile-resources",
-        "--sourcedir=gresources",
-        "--target=ocrd_browser/ui.gresource",
-        "gresources/ocrd-browser.gresource.xml",
-    ]
-)
-
 setup(
-    name='browse-ocrd',
+    name='browse-ocrd-physical-import',
     version=__version__,
     author='Johannes Künsebeck',
     author_email='kuensebeck@googlemail.com',
-    description='An extensible viewer for OCRD mets.xml files',
+    description='Plugin for browse-ocrd to scan book pages with an android phone camera',
     license='MIT License',
     long_description=codecs.open('README.md', encoding='utf-8').read(),
     long_description_content_type='text/markdown',
-    url="https://github.com/hnesk/browse-ocrd",
+    url="https://github.com/hnesk/browse-ocrd-physical-import",
     packages=setuptools.find_packages(),
     install_requires=install_requires,
     include_package_data=True,
@@ -42,15 +31,10 @@ setup(
         'Intended Audience :: Science/Research',
         'Topic :: Scientific/Engineering :: Image Recognition'
     ],
-    keywords=['OCR', 'OCRD', 'mets', 'PAGE Xml'],
+    keywords=['OCR', 'scan', 'bookscanning', 'voussoir'],
     entry_points={
-        'console_scripts': [
-            'browse-ocrd = ocrd_browser.main:main',
-        ],
         'ocrd_browser_view': [
-            'xml = ocrd_browser.view:ViewXml',
-            'images = ocrd_browser.view:ViewImages',
-            'scan = ocrd_browser.extensions.physical_import:ViewScan',
+            'scan = ocrd_physical_import:ViewScan',
         ],
 
     },

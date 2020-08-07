@@ -1,6 +1,3 @@
-repo/assets
-tests/assets
-
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -41,8 +38,6 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
-/resources/ocrd-browser.gresource
-/ocrd_browser/ui.gresource
 
 # Autosaved glade files
 *.ui#

@@ -1,18 +1,17 @@
-# OCRD Browser
+# OCRD Physical Import
 
-An extensible viewer for [OCRD](https://ocr-d.de/) mets.xml files 
+A plugin for [browse-ocrd](https://github.com/hnesk/browse-ocrd) to scan book pages with an android phone camera
 
-## Screenshot
-
-![OCRD Browser with two image and one xml view](docs/screenshot.png)
 
 ## Installation
 
 ```
-pip install browse-ocrd
+pip install browse-ocrd-physical-import
 ```
 
 ## Usage
 ```
-browse-ocrd ./path/to/mets.xml
+browse-ocrd 
 ```
+
+The open the view "Scan" to start scanning

@@ -1,6 +1,5 @@
-ocrd
-Pillow >= 7.2.0
-numpy >= 1.17.0
-opencv-python-headless
-PyGObject
-python-magic
+browse-ocrd
+pyvoussoir >= 0.3.0
+wheel
+pure-python-adb
+retrying
