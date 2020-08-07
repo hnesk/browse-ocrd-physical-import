@@ -7,7 +7,6 @@ from voussoir.pagewarper import PageWarper, LayoutInfo
 from numpy import array as ndarray
 
 from .scandriver import DummyDriver, AndroidADBDriver, AbstractScanDriver
-from ocrd_browser.ui import MainWindow
 from ocrd_browser.util.image import cv_scale, cv_to_pixbuf
 from ocrd_browser.view import View
 from ocrd_browser.model import DEFAULT_FILE_GROUP
@@ -20,7 +19,7 @@ class ViewScan(View):
 
     label = 'Scan'
 
-    def __init__(self, name: str, window: MainWindow):
+    def __init__(self, name: str, window: Gtk.Window):
         super().__init__(name, window)
         # self.driver = AndroidADBDriver()
         self.driver: AbstractScanDriver = DummyDriver('/home/jk/Projekte/archive-tools/projects/exit1/orig/')
