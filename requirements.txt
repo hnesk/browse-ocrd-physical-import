@@ -1,6 +1,5 @@
 wheel
 browse-ocrd
-pkg_resources
 PyGObject
 ocrd
 Pillow

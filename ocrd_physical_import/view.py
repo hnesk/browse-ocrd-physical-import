@@ -66,7 +66,7 @@ class ViewScan(View):
         for image in self.images:
             self._add_image(image)
 
-        self.document.save()
+        self.document.workspace.save_mets()
         self.images = []
         self.update_ui()
 
@@ -81,7 +81,7 @@ class ViewScan(View):
             new_page_order = page_ids[:index] + inserted_page_ids + page_ids[index:]
             self.document.reorder(new_page_order)
 
-        self.document.save()
+        self.document.workspace.save_mets()
         self.images = []
         self.update_ui()
 
