@@ -21,15 +21,14 @@ class ViewScan(View):
 
     def __init__(self, name: str, window: Gtk.Window):
         super().__init__(name, window)
-        # self.driver = AndroidADBDriver()
-        self.driver: AbstractScanDriver = DummyDriver('/home/jk/Projekte/archive-tools/projects/exit1/orig/')
+        self.driver = AndroidADBDriver()
+        #self.driver: AbstractScanDriver = DummyDriver('/home/jk/Projekte/archive-tools/projects/exit1/orig/')
         self.driver.setup()
 
         self.ui: ScanUi = None
         self.previews: List[GdkPixbuf.Pixbuf] = []
         self.layouts: List[LayoutInfo] = []
         self.images: List[ndarray] = []
-        # TODO: Braucht man das noch?
         self.selected_page_ids: List[str] = []
 
     def build(self) -> None:
@@ -39,13 +38,19 @@ class ViewScan(View):
         self.window.actions.create('scan', self.on_scan)
         self.window.actions.create('append', self.on_append)
         self.window.actions.create('insert', self.on_insert)
-        self.update_ui()
+        self.window.get_application().set_accels_for_action('win.append', ['space'])
+        self.window.get_application().set_accels_for_action('win.insert', ['Insert'])
+        self.window.get_application().set_accels_for_action('win.scan', ['s'])
 
-    def on_scan(self, _action: Gio.SimpleAction, _param: Optional[str]) -> None:
+
+    def _scan(self):
+        file = str(self.driver.scan())
+        image = cv2.imread(file)
+        return image
+
+    def _warp(self, image: ndarray) -> List[ndarray]:
         pw = PageWarper()
         try:
-            file = str(self.driver.scan())
-            image = cv2.imread(file)
             pw.set_image(image)
         except Exception as err:
             print(err)
@@ -54,21 +59,30 @@ class ViewScan(View):
         if not self.layouts:
             self.layouts = pw.guess_layouts(0.1, 0.65, 0.5, -0.15, 300)
 
+        images = []
         try:
-            self.images = []
             for n, layout in enumerate(self.layouts):
-                self.images.append(pw.get_warped_image(layout, n == 1))
+                images.append(pw.get_warped_image(layout, n == 1))
         except Exception as err:
             print('Warp: ' + str(err))
+
+        return images
+
+    def on_scan(self, _action: Gio.SimpleAction, _param: Optional[str]) -> None:
+        image = self._scan()
+        self.images = self._warp(image)
         self.redraw()
 
     def on_append(self, _action: Gio.SimpleAction, _param: Optional[str]) -> None:
+        # append
         for image in self.images:
             self._add_image(image)
 
         self.document.workspace.save_mets()
-        self.images = []
-        self.update_ui()
+
+        # and scan next
+        self.images = self._warp(self._scan())
+        self.redraw()
 
     def on_insert(self, _action: Gio.SimpleAction, _param: Optional[str]) -> None:
         page_ids = self.document.page_ids
@@ -98,8 +112,18 @@ class ViewScan(View):
         self.update_ui()
 
     def update_ui(self) -> None:
-        self.window.actions['insert'].set_enabled(self.images and self.page_id)
         self.window.actions['append'].set_enabled(self.images)
+        if self.document.page_ids:
+            self.ui.button_append.set_tooltip_text('Append after #{}'.format(self.document.page_ids[-1]))
+
+        if self.images and self.selected_page_ids:
+            self.window.actions['insert'].set_enabled(True)
+            self.ui.button_insert.set_label('Insert before #{}'.format(self.selected_page_ids[0]))
+        else:
+            self.window.actions['insert'].set_enabled(False)
+            self.ui.button_insert.set_label('Insert')
+
+        self.ui.button_scan.set_label('Rescan')
 
     @property
     def use_file_group(self) -> str:
@@ -120,6 +144,10 @@ class ViewScan(View):
 @Gtk.Template(filename=resource_filename(__name__, 'scan.ui'))
 class ScanUi(Gtk.Box):
     __gtype_name__ = 'ScanUi'
+
+    button_scan: Gtk.Button = Gtk.Template.Child()
+    button_append: Gtk.Button = Gtk.Template.Child()
+    button_insert: Gtk.Button = Gtk.Template.Child()
 
     preview_left: Gtk.Image = Gtk.Template.Child()
     preview_right: Gtk.Image = Gtk.Template.Child()
