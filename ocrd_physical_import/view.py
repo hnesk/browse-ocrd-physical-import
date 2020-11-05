@@ -21,19 +21,19 @@ class ViewScan(View):
 
     def __init__(self, name: str, window: Gtk.Window):
         super().__init__(name, window)
-        self.driver = AndroidADBDriver()
-        #self.driver: AbstractScanDriver = DummyDriver('/home/jk/Projekte/archive-tools/projects/exit1/orig/')
+        #self.driver = AndroidADBDriver()
+        self.driver: AbstractScanDriver = DummyDriver('/home/jk/Projekte/archive-tools/projects/exit1/orig/')
         self.driver.setup()
 
         self.ui: ScanUi = None
         self.previews: List[GdkPixbuf.Pixbuf] = []
         self.layouts: List[LayoutInfo] = []
         self.images: List[ndarray] = []
-        self.selected_page_ids: List[str] = []
 
     def build(self) -> None:
         super().build()
-        self.ui = ScanUi(self, parent=self.viewport)
+        self.container.remove(self.scroller)
+        self.ui = ScanUi(self, parent=self.container)
         self.previews = [self.ui.preview_left, self.ui.preview_right]
         self.window.actions.create('scan', self.on_scan)
         self.window.actions.create('append', self.on_append)
@@ -78,8 +78,6 @@ class ViewScan(View):
         for image in self.images:
             self._add_image(image)
 
-        self.document.workspace.save_mets()
-
         # and scan next
         self.images = self._warp(self._scan())
         self.redraw()
@@ -95,7 +93,6 @@ class ViewScan(View):
             new_page_order = page_ids[:index] + inserted_page_ids + page_ids[index:]
             self.document.reorder(new_page_order)
 
-        self.document.workspace.save_mets()
         self.images = []
         self.update_ui()
 
@@ -107,23 +104,33 @@ class ViewScan(View):
         file_id = template_file_id.format(**{'page_nr': page_nr, 'file_group': file_group})
         return self.document.add_image(image, page_id, file_id)
 
-    def pages_selected(self, _sender: Gtk.Widget, page_ids: List[str]) -> None:
-        self.selected_page_ids = page_ids
+
+    def page_activated(self, _sender: Gtk.Widget, page_id: str) -> None:
+        super().page_activated(_sender, page_id)
         self.update_ui()
 
     def update_ui(self) -> None:
+        self.ui.button_scan.set_label('Rescan' if self.images else 'Scan')
+
+        if not self.document.editable:
+            self.window.actions['append'].set_enabled(False)
+            self.ui.button_append.set_label('Append (Enable Edit Mode first)')
+            self.window.actions['insert'].set_enabled(False)
+            self.ui.button_insert.set_label('Insert (Enable Edit Mode first)')
+            return
+
+        self.ui.button_append.set_label('Append and scan next')
         self.window.actions['append'].set_enabled(self.images)
         if self.document.page_ids:
             self.ui.button_append.set_tooltip_text('Append after #{}'.format(self.document.page_ids[-1]))
 
-        if self.images and self.selected_page_ids:
+        if self.images and self.page_id:
             self.window.actions['insert'].set_enabled(True)
-            self.ui.button_insert.set_label('Insert before #{}'.format(self.selected_page_ids[0]))
+            self.ui.button_insert.set_label('Insert before #{}'.format(self.page_id))
         else:
             self.window.actions['insert'].set_enabled(False)
             self.ui.button_insert.set_label('Insert')
 
-        self.ui.button_scan.set_label('Rescan')
 
     @property
     def use_file_group(self) -> str:
@@ -134,11 +141,11 @@ class ViewScan(View):
         self.reload()
 
     def redraw(self) -> None:
-        self.update_ui()
         if self.images:
             for image, preview in zip(self.images, self.previews):
                 scaled = cv_scale(image, None, self.ui.preview_height)
                 preview.set_from_pixbuf(cv_to_pixbuf(scaled))
+        self.update_ui()
 
 
 @Gtk.Template(filename=resource_filename(__name__, 'scan.ui'))
@@ -154,6 +161,7 @@ class ScanUi(Gtk.Box):
 
     def __init__(self, view: ViewScan, **kwargs: Any):
         Gtk.Box.__init__(self, **kwargs)
+        self.get_parent().child_set_property(self, 'expand', True)
         self.view: ViewScan = view
         self.preview_height: int = 10
 
