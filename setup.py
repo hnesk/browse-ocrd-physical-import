@@ -3,13 +3,11 @@ import codecs
 
 import setuptools
 from setuptools import setup
-from ocrd_physical_import import __version__
 
 install_requires = open('requirements.txt').read().split('\n')
 
 setup(
     name='browse-ocrd-physical-import',
-    version=__version__,
     author='Johannes Künsebeck',
     author_email='kuensebeck@googlemail.com',
     description='Plugin for browse-ocrd to scan book pages with an android phone camera',
