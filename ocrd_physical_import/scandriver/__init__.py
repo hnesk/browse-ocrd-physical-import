@@ -1,12 +1,15 @@
 import os
 from time import sleep, process_time
-from typing import Tuple, Iterator
+from typing import Tuple, Iterator, Sequence
 
+import cv2
+from numpy import ndarray
 from PIL import Image
 from pathlib import Path
 from ppadb.client import Client as AdbClient
 from ppadb.device import Device
 from retrying import retry
+from voussoir.pagewarper import PageWarper
 
 
 class AbstractScanDriver:
@@ -14,7 +17,7 @@ class AbstractScanDriver:
     def setup(self) -> None:
         raise NotImplementedError('Please override setup() in your driver')
 
-    def scan(self, timeout: float = 1) -> Path:
+    def scan(self, timeout: float = 1) -> Sequence[ndarray]:
         raise NotImplementedError('Please override scan() in your driver')
 
     @staticmethod
@@ -33,7 +36,6 @@ class AbstractScanDriver:
             return True
         except Exception as e:
             return False
-
 
 class AndroidADBDriver(AbstractScanDriver):
 
@@ -55,7 +57,7 @@ class AndroidADBDriver(AbstractScanDriver):
         self.camera_path = self.device.shell('echo $EXTERNAL_STORAGE/DCIM/Camera').strip()
         self.newest_photo = self._get_newest_photo()
 
-    def scan(self, timeout: float = 1) -> Path:
+    def scan(self, timeout: float = 1) -> Sequence[ndarray]:
         previous_photo = self._get_newest_photo()
         self.device.input_keyevent('KEYCODE_CAMERA')
 
@@ -64,7 +66,8 @@ class AndroidADBDriver(AbstractScanDriver):
 
         self._delete_remote_file(remote_file)
 
-        return Path(local_file)
+        image = cv2.imread(local_file)
+        return [image]
 
     def _wait_for_image_file(self, previous_photo: str, timeout: float = 1) -> str:
         start = process_time()
@@ -124,6 +127,41 @@ class AndroidADBDriver(AbstractScanDriver):
                 raise e
 
 
+class PageWarpingDriver(AbstractScanDriver):
+
+    def __init__(self,  inner_driver:AbstractScanDriver):
+        self.layouts = None
+        self.inner_driver = inner_driver
+
+    def setup(self) -> None:
+        self.inner_driver.setup()
+
+    def scan(self, timeout: float = 1) -> Sequence[ndarray]:
+        image = self.inner_driver.scan(timeout)[0]
+        return self._warp(image)
+
+    def _warp(self, image: ndarray) -> Sequence[ndarray]:
+        pw = PageWarper()
+        try:
+            pw.set_image(image)
+        except Exception as err:
+            print(err)
+            raise err
+
+        if not self.layouts:
+            self.layouts = pw.guess_layouts(0.0, 0.65, 0.5, -0.15, 300)
+
+        images = []
+        try:
+            for n, layout in enumerate(self.layouts):
+                images.append(pw.get_warped_image(layout, n == 1))
+        except Exception as err:
+            print('Warp: ' + str(err))
+
+        return images
+
+
+
 class DummyDriver(AbstractScanDriver):
     def __init__(self, directory: str = '/home/jk/Projekte/archive-tools/projects/sym-mach/orig'):
         self.directory: str = directory
@@ -132,5 +170,8 @@ class DummyDriver(AbstractScanDriver):
     def setup(self) -> None:
         self.files = iter(sorted(Path(self.directory).glob('*.jpg')))
 
-    def scan(self, timeout: float = 1) -> Path:
-        return next(self.files)
+    def scan(self, timeout: float = 1) -> Sequence[ndarray]:
+        file = str(next(self.files))
+        image = cv2.imread(file)
+        return [image]
+

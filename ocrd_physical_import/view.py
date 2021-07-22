@@ -1,15 +1,14 @@
-import cv2
+from itertools import zip_longest
+
 from gi.repository import Gtk, Gdk, Gio, GdkPixbuf
 from ocrd_models import OcrdFile
 from pkg_resources import resource_filename
 from typing import List, Any, Optional
-from voussoir.pagewarper import PageWarper, LayoutInfo
 from numpy import array as ndarray
 
-from .scandriver import DummyDriver, AndroidADBDriver, AbstractScanDriver
+from .scandriver import DummyDriver, AndroidADBDriver, AbstractScanDriver, PageWarpingDriver
 from ocrd_browser.util.image import cv_scale, cv_to_pixbuf
 from ocrd_browser.view import View
-from ocrd_browser.model import DEFAULT_FILE_GROUP
 
 
 class ViewScan(View):
@@ -21,14 +20,19 @@ class ViewScan(View):
 
     def __init__(self, name: str, window: Gtk.Window):
         super().__init__(name, window)
-        #self.driver = AndroidADBDriver()
-        self.driver: AbstractScanDriver = DummyDriver('/home/jk/Projekte/archive-tools/projects/exit1/orig/')
+        self.driver = PageWarpingDriver(AndroidADBDriver())
+        #self.driver: AbstractScanDriver = DummyDriver('/home/jk/Projekte/archive-tools/projects/exit1/orig/')
+        #self.driver: AbstractScanDriver = PageWarpingDriver(DummyDriver('/home/jk/Projekte/archive-tools/projects/exit1/orig/'))
         self.driver.setup()
 
         self.ui: ScanUi = None
         self.previews: List[GdkPixbuf.Pixbuf] = []
-        self.layouts: List[LayoutInfo] = []
         self.images: List[ndarray] = []
+
+        self.file_group = 'OCR-D-IMG'
+        self.template_page_id = 'PAGE_{page_nr:04d}'
+        self.template_file_id = '{file_group}_{page_nr:04d}'
+
 
     def build(self) -> None:
         super().build()
@@ -42,35 +46,11 @@ class ViewScan(View):
         self.window.get_application().set_accels_for_action('win.insert', ['Insert'])
         self.window.get_application().set_accels_for_action('win.scan', ['s'])
 
-
-    def _scan(self):
-        file = str(self.driver.scan())
-        image = cv2.imread(file)
-        return image
-
-    def _warp(self, image: ndarray) -> List[ndarray]:
-        pw = PageWarper()
-        try:
-            pw.set_image(image)
-        except Exception as err:
-            print(err)
-            raise err
-
-        if not self.layouts:
-            self.layouts = pw.guess_layouts(0.1, 0.65, 0.5, -0.15, 300)
-
-        images = []
-        try:
-            for n, layout in enumerate(self.layouts):
-                images.append(pw.get_warped_image(layout, n == 1))
-        except Exception as err:
-            print('Warp: ' + str(err))
-
-        return images
+    def aquire_images(self):
+        return self.driver.scan()
 
     def on_scan(self, _action: Gio.SimpleAction, _param: Optional[str]) -> None:
-        image = self._scan()
-        self.images = self._warp(image)
+        self.images = self.aquire_images()
         self.redraw()
 
     def on_append(self, _action: Gio.SimpleAction, _param: Optional[str]) -> None:
@@ -79,7 +59,7 @@ class ViewScan(View):
             self._add_image(image)
 
         # and scan next
-        self.images = self._warp(self._scan())
+        self.images = self.aquire_images()
         self.redraw()
 
     def on_insert(self, _action: Gio.SimpleAction, _param: Optional[str]) -> None:
@@ -97,11 +77,8 @@ class ViewScan(View):
         self.update_ui()
 
     def _add_image(self, image:ndarray) -> OcrdFile:
-        file_group = DEFAULT_FILE_GROUP
-        template_page_id = 'PAGE_{page_nr:04d}'
-        template_file_id = '{file_group}_{page_nr:04d}'
-        page_id, page_nr = self.document.get_unused_page_id(template_page_id)
-        file_id = template_file_id.format(**{'page_nr': page_nr, 'file_group': file_group})
+        page_id, page_nr = self.document.get_unused_page_id(self.template_page_id)
+        file_id = self.template_file_id.format(**{'page_nr': page_nr, 'file_group': self.file_group})
         return self.document.add_image(image, page_id, file_id)
 
 
@@ -142,9 +119,14 @@ class ViewScan(View):
 
     def redraw(self) -> None:
         if self.images:
-            for image, preview in zip(self.images, self.previews):
-                scaled = cv_scale(image, None, self.ui.preview_height)
-                preview.set_from_pixbuf(cv_to_pixbuf(scaled))
+            preview: Gtk.Image
+            for image, preview in zip_longest(self.images, self.previews):
+                if image is not None:
+                    scaled = cv_scale(image, None, self.ui.preview_height)
+                    preview.set_from_pixbuf(cv_to_pixbuf(scaled))
+                    preview.set_visible(True)
+                else:
+                    preview.set_visible(False)
         self.update_ui()
 
 
